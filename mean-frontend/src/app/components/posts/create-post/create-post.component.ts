@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
+import { ActivatedRoute, ParamMap } from '@angular/router';
 import { Post } from 'src/app/models/post/post.model';
 import { PostsService } from 'src/app/services/posts.service';
 
@@ -8,20 +9,60 @@ import { PostsService } from 'src/app/services/posts.service';
   templateUrl: './create-post.component.html',
   styleUrls: ['./create-post.component.css'],
 })
-export class CreatePostComponent {
+export class CreatePostComponent implements OnInit {
   enteredTitle = '';
   enteredContent = '';
+  isLoading = false;
+  post: any;
+  private mode = 'create';
+  private postId: string | null = '';
 
   postCreated = new EventEmitter<Post>();
 
-  constructor(public postsService: PostsService) {}
+  constructor(
+    public postsService: PostsService,
+    public route: ActivatedRoute
+  ) {}
 
-  onAddPost(form: NgForm) {
+  ngOnInit(): void {
+    this.route.paramMap.subscribe((paramMap: ParamMap) => {
+      if (paramMap.has('postId')) {
+        this.mode = 'edit';
+        this.postId = paramMap.get('postId')!;
+        this.isLoading = true;
+        this.postsService.getPost(this.postId).subscribe((postData) => {
+          this.isLoading = false;
+          this.post = {
+            id: postData._id,
+            title: postData.title,
+            content: postData.content,
+          };
+        });
+      } else {
+        this.mode = 'create';
+        this.postId = null;
+      }
+    });
+  }
+
+  onSavePost(form: NgForm) {
     if (form.invalid) {
       return;
     }
 
-    this.postsService.addPost(form.value.title, form.value.content);
-    form.resetForm();
+    this.isLoading = true;
+    if (this.mode === 'create') {
+      this.postsService.addPost(form.value.title, form.value.content);
+      form.resetForm();
+      alert('Post created!');
+    } else {
+      this.postsService.updatePost(
+        this.postId!,
+        form.value.title,
+        form.value.content
+      );
+      form.resetForm();
+      alert('Post updated!');
+    }
   }
 }
